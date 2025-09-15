@@ -1,0 +1,26 @@
+Production 310 K, 4 fs time step for HMR - will last up to 1 µs
+ &cntrl
+  imin=0,          ! Molecular dynamics
+  ntx=1,           ! Positions read formatted with no initial velocities
+  irest=0,         ! New random intial velocities
+  ntc=2,           ! SHAKE on for bonds with hydrogen
+  ntf=2,           ! No force evaluation for bonds with hydrogen
+  WATNAM='WAT',                   
+  OWTNM='O',
+  tol=0.0000001,   ! SHAKE tolerance
+  nstlim=250000000, ! Number of MD steps
+  ntt=3,           ! Langevin dynamics
+  gamma_ln=1.0,    ! Collision frequency for Langevin dyn.
+  temp0=310.0,     ! Simulation temperature (K)
+  ntpr=50000,       ! Print to mdout every ntpr steps
+  ntwr=50000,     ! Write a restart file every ntwr steps
+  ntwx=50000,       ! Write to trajectory file every ntwc steps
+  dt=0.004,        ! Timestep (ps)
+  ig=-1,           ! Random seed for Langevin dynamics
+  ntb=2,           ! Constant pressure periodic boundary conditions
+  ntp=3, csurften=3, gamma_ten=0.0, ninterface=2, ! semiisotropic
+  cut=10.0,        ! Nonbonded cutoff (Angstroms)
+  ioutfm=1,        ! Write binary NetCDF trajectory
+  ntxo=2,          ! Write binary restart file
+  barostat=1,      ! Use Berendsen barostat (Amber 14)
+ /
