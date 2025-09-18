@@ -11,12 +11,16 @@
 # "PROCESSED_TRAJS"						              |
 #          [!] This is customized for amber simulation output [!]             |
 #          [!] Expects the following format for simulation output:            |
-#              Min* = minimization					      |
-#	       Heat* = heating						      |		
-#              Eq* = equilibration					      |
-#              Prod* = production					      |
+#              Min*.rst(7) = minimization				      |
+#	       Heat*.nc    = heating					      |		
+#              Eq*.nc      = equilibration				      |
+#              Prod*.nc    = production					      |
 #          [!] if this does not match you naming system please edit 	      |
 #              the line marked "EDIT A" 				      |
+#  Recommended folder organization:                                           |
+#                           $CWD/SYSNAME/REPLICA_#                            |
+#  And processed output will be places in:                                    |
+#                           $CWD/PROCESSED_TRAJS/SYSNAME/REPLICA_#            |
 # ----------------------------------------------------------------------------*
 
 # ------------------------------REQUIREMENTS ---------------------------------*
@@ -44,6 +48,10 @@ only_prod="F"
 ALIGN="F"
 CENTER="F"
 skip=1
+master_ref=""
+align_sel_ref=""
+center_sel=""
+align_sel=""
 while test $# -gt 0; do
   case "$1" in
     -h|--help)
@@ -53,11 +61,11 @@ while test $# -gt 0; do
       echo "-f, --folder      The name of the folder containing the trajectories. Default=cwd"     
       echo "-p, --only_prod   Specify T/F to only include the production trajectories in the reimaged trajectory"  
       echo "-A, --align       Specify T/F for alignment, default=F"
-      echo "-a, --align_sel   Cpptraj formated selection for centering the system in the simulation box"
+      echo "-a, --align_sel   Cpptraj formatted selection for centering the system in the simulation box"
       echo "-R, --ref         Full location and name of reference structure for alignment"
-      echo "-r, --ref_sel     Cpptraj formation selection for the reference for alignment. [!] must have the same number of atoms as the alignment selection"
+      echo "-r, --ref_sel     Cpptraj formatted selection for the reference for alignment. [!] must have the same number of atoms as the alignment selection"
       echo "-C, --center      Specify T/F for centering on the protein, default=F"
-      echo "-c, --center_sel  Cpptraj formated selection for centering the system in the simulation box"
+      echo "-c, --center_sel  Cpptraj formatted selection for centering the system in the simulation box"
       echo "-s, --skip        Specify int skip rate for trajectory, default skip=1"
      
       exit 0
@@ -155,7 +163,13 @@ if [ ! -d "$HOME/PROCESSED_TRAJS" ]; then
   mkdir $HOME/PROCESSED_TRAJS
 fi
 
-systms=($(find ${HOME} -path "*/${FOLDER}*" -prune | grep -v "PROCESSED_TRAJS" | sort -V))
+echo ""
+echo "=============================="
+echo "Trajectory Processing Starting"
+echo "=============================="
+echo ""
+
+systms=($(find ${HOME} -path "*/${FOLDER}*" -prune | grep -v "SEEDS" | grep -v "PROCESSED_TRAJS" | grep -v "SNAPSHOTS" | sort -V ))
 
 cnt=1
 for sys in ${systms[@]}; do
