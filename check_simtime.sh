@@ -1,35 +1,57 @@
 #!/bin/bash 
 
-# Author: Christina A. Stephens
-# Date: 20250618
-# Purpose: Concatenate and reimage simulation trajectories 
-#	   systematically.
-#          For the given folder name, all directories matching
-#          this name will be search and any trajectories found processed.
-#          Processed trajectories will be outputed to a new folder called
-#          "PROCESSED_TRAJS"
-#          [!] This is customized for amber simulation output [!]
-#          [!] Expects the following format for simulation output:
-#              Min* = minimization
-#	       Heat* = heating
-#              Eq* = equilibration
-#              Prod* = production
-#          [!] if this does not match you naming system please edit 
-#              the line marked "EDIT A"
+# AUTHOR: Christina A. Stephens
+# DATE:   20250618
 
-# make sure you have access to cpptraj 
-# it's provided by Amber
-#export AMBERHOME=/groups/nl2960_gp/software/amber24/
-#export PATH="$AMBERHOME/bin:$PATH"=
-#source $AMBERHOME/amber.sh
+# ------------------------------ PURPOSE -------------------------------------*
+#  Find the simulation summary output files in each given sub-directory       |
+#  and report if the simulation has reached the desired length (in ns).       |
+#  There is also an option to relaunch the SLURM job for the simulation       |
+#  if the simulation time is not met and the job is not currently running.    |
+#          [!] This is customized for amber simulation output [!]             |
+#          [!] Expects the following format for simulation output:            |
+#              Prod*.out = production output summary file                     |   
+#	       Eq*.out = production output summary file 		      |
+#          [!] if this does not match you naming system please edit           |
+#              the line marked "EDIT A"                                       |
+#  Recommended folder organization:                                           |
+#                           $CWD/SYSNAME/REPLICA_#                            |
+#  And processed output will be places in:                                    |
+#                           $CWD/PROCESSED_TRAJS/SYSNAME/REPLICA_#            |
+#                           						      |
+#  * This analysis assumes that you used the same coordinate save rate        |
+#    in all production runs                                                   |
+#    									      |
+#  * Re-launching SLURM jobs will only work is a SLURM submission file is     |
+#    already present in individual simulation subdirectories.                 |
+#    									      |
+#  * Also assumes ALL of your simulation output is in one folder              |
+#  									      |
+#  * make sure your SLURM Amber submission scripts automatiocally update      |
+#    naming of repeated simulation steps (i.e. Prod and Eq) is following      |
+#    the template scripting in TEMPATE_SCRIPTS_FOR_*_SIMULATIONS/             |
+# ----------------------------------------------------------------------------*
 
+echo ""
 HOME=`pwd`
+date_=`date`
 
-if [ ! -d "$HOME/PROCESSED_TRAJS" ]; then
-  mkdir $HOME/PROCESSED_TRAJS
-fi
+chars='abcdefghijklmnopqrstuvwxyz0123456789'
+n=5
+str=""
+for ((i = 0; i < n; ++i)) ; do
+    str+=${chars:RANDOM%${#chars}:1}
+done
+err_log="${HOME}/check_warning.${str}.log"
+summ_log="${HOME}/simtime_summary.${str}.txt"
 
-FOLDER=""
+
+FOLDER=`pwd`
+RESTART="F"
+MAX=0
+MASTER_SLURM=""
+status_="N/A"
+
 while test $# -gt 0; do
   case "$1" in
     -h|--help)
@@ -38,6 +60,7 @@ while test $# -gt 0; do
       echo "-h, --help        show brief help"
       echo "-f, --folder      The name of the folder containing the trajectories. Default=cwd"     
       echo "-r, --restart     If the maxium simulation time has not been reached, launch the run_amber job on the cluster (T/F). Default=F"
+      echo "-s, --slurm       Name of the SLURM submission script for each individual simulation"
       echo "-m, --max)        Maximum simulation time. Default=1000 ns"
       exit 0
       ;;
@@ -47,7 +70,7 @@ while test $# -gt 0; do
       if test $# -gt 0; then
         export FOLDER=$1
       else
-        export FOLDER=""
+        export FOLDER=`pwd`
       fi
       shift
       ;;
@@ -65,7 +88,16 @@ while test $# -gt 0; do
       if test $# -gt 0; then
         export MAX=$1
       else
-        export MAX="1000"
+        export MAX=0
+      fi
+      shift
+      ;;
+    -s|--slurm)
+      shift
+      if test $# -gt 0; then
+        export MASTER_SLURM=$1
+      else
+        export MASTER_SLURM=""
       fi
       shift
       ;;
@@ -75,75 +107,129 @@ while test $# -gt 0; do
   esac
 done
 
-systms=($(find ${HOME} -path "*/${FOLDER}*" -prune | grep -v "PROCESSED_TRAJS" | sort -V))
+systms=($(find ${HOME} -path "*/${FOLDER}*" -prune | grep -v "SEEDS" | grep -v "PROCESSED_TRAJS" | grep -v "SNAPSHOTS" | sort -V ))
+
+echo "" > ${summ_log}
+echo "DATE: ${date_}" >> ${summ_log}
+echo "" >> ${summ_log}
+echo "(C) = complete" >> ${summ_log}
+echo "(I) = incomplete" >> ${summ_log}
+echo "N/A = data not available" >> ${summ_log}
+echo "" >> ${summ_log}
+echo "[1]-SYSTEM   [2]-REPLICA   [3]-SIM.TIME(ns)  [4]-TARGET-TIME(ns)  [5]-JOB-STATUS" >> ${summ_log}
+echo "--------------------------------------------------------------------------------" >> ${summ_log}
 
 cnt=1
 for sys in ${systms[@]}; do
+   SLURM=`echo "${MASTER_SLURM}"`
    subdir_name=`echo $(basename $sys)`
    dir_name=`echo $(basename $(dirname $sys))`
    sim_fldr="${sys}"
    echo "---> Now processing ${sim_fldr} <---"
    echo ""
 
-   if [ ! -d "$HOME/PROCESSED_TRAJS/${dir_name}" ]; then
-  	mkdir $HOME/PROCESSED_TRAJS/${dir_name}
-   fi
-
-   if [ ! -d "$HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}" ]; then
-        mkdir $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}
-   fi
-
-   if [ "${cnt}" == "1" ] ; then
-        echo "REPLICA   SIM. TIME(ns)" > $HOME/PROCESSED_TRAJS/${dir_name}/simtime_summary.txt
-   fi
-
    cd ${sim_fldr}
    
-   # Grab production output
-   any_prod=`ls | grep -E "out" | grep "Prod"`
+   # START OF EDIT A <------------------------------
+
+   # Grab the last production and equilibration output
+   last_prod=`ls | grep -E "out" | grep "Prod" | sort -V | tail -1`
+   last_eq=`ls | grep -E "out" | grep "Eq" | sort -V | tail -1`
+   
+   # END OF EDIT A <--------------------------------
+   
    # Print the number of completed simulation steps
-   if [ "$any_prod" != "" ]  ; then
-   	prod_out=`ls | grep -E "out" | grep "Prod" | sort -V | tail -1`
-   	time_ps=`grep "TIME(PS)" ${prod_out} | tail -1 | awk '{print $6}'`
-        time_total=`awk -v a="$time_ps" 'BEGIN { printf "%f\n", a/1000 }'`
-	
-	any_eq=`ls | grep -E "out" | grep "Eq"`
-   	if [ "$any_eq" != "" ]  ; then
-		eq_out=`ls | grep -E "out" | grep "Eq" | sort -V | tail -1`
-        	time_ps=`grep "TIME(PS)" ${eq_out} | tail -1 | awk '{print $6}'`
-        	time_eq=`awk -v a="$time_ps" 'BEGIN { printf "%f\n", a/1000 }'`
-        	prod_time=`awk -v a="$time_total" -v b="$time_eq" 'BEGIN { printf "%f\n", a-b }'`
-	else 
-		prod_time=${time_total}
+   if [ ! -z ${last_prod} ] && [ ! -z ${last_eq} ]  ; then
+   	time_ps=`grep "TIME(PS)" ${last_prod} | tail -1 | awk '{print $6}'`
+	if [ ! -z ${time_ps} ] ; then
+		time_total=`awk -v a="$time_ps" 'BEGIN { printf "%f\n", a/1000 }'` # convert ps to ns
 	fi
 
-        time_round=`echo "$prod_time" | xargs printf "%.*f\n" "0"`
-	echo "Total production simulation time: ${time_round} ns"
-	echo "${subdir_name} ${time_round}" >> $HOME/PROCESSED_TRAJS/${dir_name}/simtime_summary.txt
-       
-        if [ -f "run_amber.sh" ] ; then
-           name_=`grep "job-name" run_amber.sh | cut -d'=' -f 2 | head -c 8`
-           running=`squeue | grep "${name_}" | awk '{print $1}'`
-	   if [ ! -z "${running}" ]; then
-              echo "This job (${name_}) is already running, check back later :)"
-	      if [ "${MAX}" -le "${time_round}" ]  ; then
-	         echo "But you've maxed out your desired simulation time, consider stopping the job."
-	      fi
-           else
-	      if [ "${MAX}" -gt "${time_round}" ]  ; then
-	         echo "This job (${name_}) is currently not running but has not reached the max. sim. time"
-	         if [ "$RESTART" == "T" ]  ; then
-	   	    echo "Relaunching the job now!"
-		    sbatch run_amber.sh
-	         fi
-	      fi
-           fi
+        time_ps=`grep "TIME(PS)" ${last_eq} | tail -1 | awk '{print $6}'` 
+        if [ ! -z ${time_ps} ] ; then
+		time_eq=`awk -v a="$time_ps" 'BEGIN { printf "%f\n", a/1000 }'` # convert ps to ns
+	fi
+
+	#subtract off the time up to the start of production
+	if [ ! -z ${time_eq} ] && [ ! -z ${time_ps} ] ; then 
+        	prod_time=`awk -v a="$time_total" -v b="$time_eq" 'BEGIN { printf "%f\n", a-b }'`
+        	time_round=`echo "$prod_time" | xargs printf "%.*f\n" "0"`
+		echo "Total production simulation time: ${time_round} ns"
+	else
+		echo "Simulation time for production and or equilibration not found --> ${dir_name}/${subdir_name}" >> ${err_log}
+		echo "	Check individual output files"
+		${time_round}="N/A"
 	fi
    else
- 	echo "This simulation does not have any production simulation data"
-   	echo "${subdir_name} NONE" >> $HOME/PROCESSED_TRAJS/${dir_name}/simtime_summary.txt
+	echo "Cannot locate production and/or equilibration summary output files --> ${dir_name}/${subdir_name}" >> ${err_log}
    fi
 
+
+   if [ -z ${SLURM} ] ; then
+	l_SLURM=($(grep -H "SBATCH" *.sh | cut -d : -f1 | uniq ))
+	n_slurm=`echo ${#l_SLURM[@]}`
+	echo "You did not specify a SLURM submission script."
+	if [ "${n_slurm}" -gt "1" ] ; then
+		echo "But the follwing SLURM compatible scripts were found:"
+		n=0
+		for i in ${l_SLURM[@]} ; do
+			n=`echo "${n}+1" | bc -l`
+			echo "	[${n}] ${i}"
+		done
+		while :; do
+                        read -p "Please select the correct script by number. " num
+			if  [[ $num =~ ^[[:digit:]]+$ ]] && [[ $num -gt 0 && $num -le ${n} ]] ; then
+				adjusted=`echo "${num}-1" | bc -l`
+				SLURM=`echo "${l_SLURM[${adjusted}]}"`
+				break
+			else
+				echo "Please answer with a valid number."
+			fi
+                done
+
+	elif [ "${n_slurm}" -eq "1" ] ; then	
+		echo "One SLURM compatible script found: ${l_SLURM[0]}"
+		while :; do
+    			read -p "Is this correct? (Y/N) " yn
+    			case $yn in
+        			[Yy]* ) SLURM=`echo "${l_SLURM[0]}"`; break;;
+        			[Nn]* ) SLURM=""; break;;
+        			* ) echo "Please answer yes or no.";;
+    			esac
+		done	
+	else
+		echo "No SLURM compatible scripts found, cannot determine job status --> ${dir_name}/${subdir_name}" >> ${err_log}
+
+	fi
+   fi
+
+
+   if [ ! -z ${SLURM} ] && [ -f ${SLURM} ] ; then
+	name_=`grep "job-name" ${SLURM} | cut -d'=' -f 2 | head -c 8`
+        running=`squeue | grep "${name_}" | awk '{print $1}'`
+        if [ ! -z "${running}" ]; then
+		if [ "${MAX}" -le "${time_round}" ]  ; then
+			status_="running (C) -- stop this job? ID: ${running}"
+		else
+			status_="running (I)"
+		fi
+       	else
+		if [ "${MAX}" -gt "${time_round}" ]  ; then
+			status_="dead (I)"
+	       		if [ "$RESTART" == "T" ]  ; then
+		   	    echo "Relaunching the job now!"
+			    #sbatch ${SLURM}
+		        fi
+		else
+			status_="dead (C)"
+		fi
+	fi
+   else
+	echo "SLURM submission script was not found --> ${dir_name}/${subdir_name}" >> ${err_log}
+   fi
+
+   # write final report for this simulation 
+   echo "${dir_name}   ${subdir_name}   ${time_round}   ${MAX}   ${status_}" >> ${summ_log}
 
    cd ${HOME}
 

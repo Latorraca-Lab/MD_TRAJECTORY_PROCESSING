@@ -45,7 +45,7 @@ done
 err_log="${HOME}/snapshot_warning.${str}.log"
 
 
-FOLDER=""
+FOLDER=`pwd`
 ALIGN="F"
 CENTER="F"
 frames=20
@@ -80,7 +80,7 @@ while test $# -gt 0; do
       if test $# -gt 0; then
         export FOLDER=$1
       else
-        export FOLDER=""
+        export FOLDER=`pwd`
       fi
       shift
       ;;
@@ -183,6 +183,7 @@ echo "=============================="
 echo "Starting to Save Snapshots"
 echo "=============================="
 echo ""
+
 
 
 systms=($(find ${HOME} -path "*/${FOLDER}*" -prune | grep -v "SEEDS" | grep -v "PROCESSED_TRAJS" | grep -v "SNAPSHOTS" | sort -V))

@@ -43,7 +43,7 @@ for ((i = 0; i < n; ++i)) ; do
 done
 err_log="${HOME}/processing_warning.${str}.log"
 
-FOLDER=""
+FOLDER=`pwd`
 only_prod="F"
 ALIGN="F"
 CENTER="F"
@@ -76,7 +76,7 @@ while test $# -gt 0; do
       if test $# -gt 0; then
         export FOLDER=$1
       else
-        export FOLDER=""
+        export FOLDER=`pwd`
       fi
       shift
       ;;
