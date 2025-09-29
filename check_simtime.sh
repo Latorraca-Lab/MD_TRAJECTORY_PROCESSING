@@ -129,7 +129,7 @@ for sys in ${systms[@]}; do
    echo ""
 
    cd ${sim_fldr}
-   
+
    # START OF EDIT A <------------------------------
 
    # Grab the last production and equilibration output
@@ -158,10 +158,11 @@ for sys in ${systms[@]}; do
 	else
 		echo "Simulation time for production and or equilibration not found --> ${dir_name}/${subdir_name}" >> ${err_log}
 		echo "	Check individual output files"
-		${time_round}="N/A"
+		time_round="N/A"
 	fi
    else
 	echo "Cannot locate production and/or equilibration summary output files --> ${dir_name}/${subdir_name}" >> ${err_log}
+	time_round=0
    fi
 
 
@@ -203,11 +204,11 @@ for sys in ${systms[@]}; do
 	fi
    fi
 
-
    if [ ! -z ${SLURM} ] && [ -f ${SLURM} ] ; then
-	name_=`grep "job-name" ${SLURM} | cut -d'=' -f 2 | head -c 8`
-        running=`squeue | grep "${name_}" | awk '{print $1}'`
-        if [ ! -z "${running}" ]; then
+	name_=`grep "job-name" ${SLURM} | cut -d'=' -f 2` # | head -c 8`
+	running=`squeue -o "%.18i %.9P %.30j %.8u %.8T %.10M %.9l %.6D %R" | grep cas2408 | awk '{print $3}' | grep -w ${name_}`
+
+        if [ ! -z "${running}" ] && [ "${name_}" == "${running}" ] ; then
 		if [ "${MAX}" -le "${time_round}" ]  ; then
 			status_="running (C) -- stop this job? ID: ${running}"
 		else
@@ -218,7 +219,7 @@ for sys in ${systms[@]}; do
 			status_="dead (I)"
 	       		if [ "$RESTART" == "T" ]  ; then
 		   	    echo "Relaunching the job now!"
-			    #sbatch ${SLURM}
+			    sbatch ${SLURM}
 		        fi
 		else
 			status_="dead (C)"
