@@ -1,11 +1,5 @@
-# MD_TRAJECTORY_PROCESSING_PRIVATE
+# MD_TRAJECTORY_PROCESSING
 Scripts for automating MD simulation trajectory concatenation, alignment, centering, and wrapping (PRIVATE)
-
-```
-Will use this as editing/staging space for scripts which will       
-eventually be pushed to a public repo either on my own github or on the  
-Latorraca github.                                                   
-```
 
 These scripts are intended to process and monitor Amber simulations
 and was originally writter for Amber 24/25
