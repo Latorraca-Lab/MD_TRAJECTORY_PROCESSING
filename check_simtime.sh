@@ -35,6 +35,7 @@
 echo ""
 HOME=`pwd`
 date_=`date`
+user=`whoami`
 
 chars='abcdefghijklmnopqrstuvwxyz0123456789'
 n=5
@@ -111,6 +112,7 @@ systms=($(find ${HOME} -path "*/${FOLDER}*" -prune | grep -v "SEEDS" | grep -v "
 
 echo "" > ${summ_log}
 echo "DATE: ${date_}" >> ${summ_log}
+echo "USER: ${user}" >> ${summ_log}
 echo "" >> ${summ_log}
 echo "(C) = complete" >> ${summ_log}
 echo "(I) = incomplete" >> ${summ_log}
@@ -206,7 +208,7 @@ for sys in ${systms[@]}; do
 
    if [ ! -z ${SLURM} ] && [ -f ${SLURM} ] ; then
 	name_=`grep "job-name" ${SLURM} | cut -d'=' -f 2` # | head -c 8`
-	running=`squeue -o "%.18i %.9P %.30j %.8u %.8T %.10M %.9l %.6D %R" | grep cas2408 | awk '{print $3}' | grep -w ${name_}`
+	running=`squeue -o "%.18i %.9P %.30j %.8u %.8T %.10M %.9l %.6D %R" | grep "${user}" | awk '{print $3}' | grep -w ${name_}`
 
         if [ ! -z "${running}" ] && [ "${name_}" == "${running}" ] ; then
 		if [ "${MAX}" -le "${time_round}" ]  ; then
