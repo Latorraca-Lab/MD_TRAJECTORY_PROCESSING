@@ -204,10 +204,7 @@ for sys in ${systms[@]}; do
    cd ${sim_fldr}
     
    # Grab a topology file
-   top=`ls | grep -E "psf" | tail -1`
-   parm=`ls | grep -E "parm7" | tail -1`
-   pdb=`ls | grep -E "pdb" | tail -1`
-
+   top=`ls | grep -E "psf|prmtop" | tail -1`
 
    # Grab production output
    prod_trajs=($(ls | grep -E "nc" | grep "Prod" | sort -V))

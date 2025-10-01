@@ -20,10 +20,6 @@
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-task=1 
 
-# Mail parameters
-#SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=cas2408@cumc.columbia.edu
-
 module load cuda/12.4 
 
 export AMBERHOME=/groups/nl2960_gp/software/amber24/

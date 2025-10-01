@@ -191,13 +191,12 @@ for sys in ${systms[@]}; do
    cd ${sim_fldr}
     
    # Grab a topology file
-   top=`ls | grep -E "psf" | tail -1`
-   readable_top=`ls | grep -E "pdb|psf" | tail -1`
+   top=`ls | grep -E "psf|prmtop" | tail -1`
 
    # START OF EDIT A <------------------------------
 
    # Grab the starting coordinates 
-   ini_crds=`ls | grep -E "pdb|rst|rst7" | grep -v -E "Heat|Eq|Min|Prod" | tail -1`
+   ini_crds=`ls | grep -E "pdb|rst|rst7|inpcrd" | grep -v -E "Heat|Eq|Min|Prod" | tail -1`
 
    # Grab minimization output
    min=($(ls | grep -E "rst|rst7" | grep "Min" | sort -V))
@@ -302,10 +301,6 @@ for sys in ${systms[@]}; do
    
    if [ -f ${top} ] ; then
    	cp ${top} $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}
-   fi
-
-   if [ -f ${readable_top} ] ; then
-   	cp ${readable_top} $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}
    fi
 
    # clean up
