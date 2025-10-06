@@ -86,7 +86,7 @@ while test $# -gt 0; do
       fi
       shift
       ;;
-    -t|--stack)
+    -k|--stack)
       shift
       if test $# -gt 0; then
         export STACK=$1
