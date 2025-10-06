@@ -49,6 +49,7 @@ summ_log="${HOME}/simtime_summary.${str}.txt"
 
 FOLDER=`pwd`
 RESTART="F"
+STACK="F"
 MAX=0
 MASTER_SLURM=""
 status_="N/A"
@@ -61,6 +62,7 @@ while test $# -gt 0; do
       echo "-h, --help        show brief help"
       echo "-f, --folder      The name of the folder containing the trajectories. Default=cwd"     
       echo "-r, --restart     If the maxium simulation time has not been reached, launch the run_amber job on the cluster (T/F). Default=F"
+      echo "-k, --stack       Launch a new job even if the old one is still running. Default=F"
       echo "-s, --slurm       Name of the SLURM submission script for each individual simulation"
       echo "-m, --max)        Maximum simulation time. Default=1000 ns"
       exit 0
@@ -81,6 +83,15 @@ while test $# -gt 0; do
         export RESTART=$1
       else
         export RESTART="F"
+      fi
+      shift
+      ;;
+    -t|--stack)
+      shift
+      if test $# -gt 0; then
+        export STACK=$1
+      else
+        export STACK="F"
       fi
       shift
       ;;
@@ -215,6 +226,10 @@ for sys in ${systms[@]}; do
 			status_="running (C) -- stop this job? ID: ${running}"
 		else
 			status_="running (I)"
+			if [ "$STACK" == "T" ]  ; then
+                            echo "Submitting a stacked job now!"
+                            sbatch ${SLURM}
+                        fi
 		fi
        	else
 		if [ "${MAX}" -gt "${time_round}" ]  ; then
