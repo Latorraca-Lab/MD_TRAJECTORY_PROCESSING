@@ -219,7 +219,7 @@ for sys in ${systms[@]}; do
 
    if [ ! -z ${SLURM} ] && [ -f ${SLURM} ] ; then
 	name_=`grep "job-name" ${SLURM} | cut -d'=' -f 2` # | head -c 8`
-	running=`squeue -o "%.18i %.9P %.30j %.8u %.8T %.10M %.9l %.6D %R" | grep "${user}" | awk '{print $3}' | grep -w ${name_}`
+	running=`squeue -o "%.18i %.9P %.30j %.8u %.8T %.10M %.9l %.6D %R" | grep "${user}" | awk '{print $3}' | grep -w ${name_} | head -1`
 
         if [ ! -z "${running}" ] && [ "${name_}" == "${running}" ] ; then
 		if [ "${MAX}" -le "${time_round}" ]  ; then
