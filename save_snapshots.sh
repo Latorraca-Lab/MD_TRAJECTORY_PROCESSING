@@ -50,6 +50,7 @@ ALIGN="F"
 CENTER="F"
 frames=20
 master_ref=""
+top=""
 align_sel_ref=""
 center_sel=""
 align_sel=""
@@ -67,6 +68,7 @@ while test $# -gt 0; do
       echo "-a, --align_sel       Cpptraj formatted selection for centering the system in the simulation box"
       echo "-R, --ref             Full location and name of reference structure for alignment"
       echo "-r, --ref_sel         Cpptraj formatted selection for the reference for alignment. [!] must have the same number of atoms as the alignment selection"
+      echo "-t, --topology        Specify the full path of the system topology, otherwise one will be located automatically"
       echo "-C, --center          Specify T/F for centering on the protein, default=F"
       echo "-c, --center_sel      Cpptraj formatted selection for centering the system in the simulation box"
       echo "-s, --strip           Cpptraj formatted selection for atom removal from the saved snapshots"
@@ -126,6 +128,15 @@ while test $# -gt 0; do
         export align_sel_ref=$1
       else
         align_sel_ref=""
+      fi
+      shift
+      ;;
+    -t|--topology)
+      shift
+      if test $# -gt 0; then
+        export top=$1
+      else
+        top=""
       fi
       shift
       ;;
@@ -204,7 +215,11 @@ for sys in ${systms[@]}; do
    cd ${sim_fldr}
     
    # Grab a topology file
-   top=`ls | grep -E "psf|prmtop" | tail -1`
+   echo "$top"
+   if [ -z "${top}" ] ; then
+         top=`ls | grep -E "psf|prmtop" | tail -1`
+         echo "Found topology file: ${top}"
+   fi
 
    # Grab production output
    prod_trajs=($(ls | grep -E "nc" | grep "Prod" | sort -V))
@@ -219,6 +234,7 @@ for sys in ${systms[@]}; do
 	   done
 
 	   n_frames=`awk -v a="$total_steps" -v b="${save_rate}" 'BEGIN { printf "%f\n", a/b }'`
+	   n_frames=${n_frames%.*}
 
 	   echo "NUMBER OF STEPS: $total_steps   NUMBER OF FRAMES: ${n_frames}"
 	   save_rate=`awk -v a="$n_frames" -v b="${frames}" 'BEGIN { printf "%f\n", a/b }'`
@@ -256,8 +272,8 @@ for sys in ${systms[@]}; do
 
    if [ "${ALIGN}" == "T" ] ; then
      if [ ! -z "${align_sel}" ] || [  ! -z "${align_sel_ref}"  ] ; then
-        echo "parm ${HOME}/${master_ref} [ref_parm]" >> temp.in
-        echo "reference ${HOME}/${master_ref} parm [ref_parm] [my_ref]" >> temp.in
+        echo "parm ${master_ref} [ref_parm]" >> temp.in
+        echo "reference ${master_ref} parm [ref_parm] [my_ref]" >> temp.in
         echo "align ${align_sel} ${align_sel_ref} move @* ref [my_ref]" >> temp.in
      else
         echo "Cannot align system, at least one of the alignment selections not provided --> ${dir_name}/${subdir_name}" >> ${err_log}
@@ -275,10 +291,12 @@ for sys in ${systms[@]}; do
 	for t in $(seq 1 ${frames}); do
 		f=`awk -v F="$f" -v G=$time_round 'BEGIN { printf "%f\n", F+G }'`
 	   	int_f=`echo "$f" | xargs printf "%.*f\n" "0"`
-		echo "trajout frame_$int_f.pdb onlyframes ${int_f}" >> temp.in
-  	 done
+		if [ ${int_f} -le ${n_frames} ] ; then
+			echo "trajout frame_$int_f.pdb onlyframes ${int_f}" >> temp.in
+  		fi 
+	done
 
-   	 echo "go" >> temp.in
+   	echo "go" >> temp.in
 
    
    	cpptraj -i temp.in > ${HOME}/${dir_name}_${subdir_name}_cpptraj.${str}.log
@@ -293,7 +311,7 @@ for sys in ${systms[@]}; do
                         	mkdir $OUTFLDR/${dir_name}/${subdir_name}
                         fi
 			if [ ! -z "${reformat_fn}" ] && [ -f "${reformat_fn}" ]; then
-        			this_reformat=`grep "${dir_name}_${subdir_name}" ${reformat_fn}`
+        			this_reformat=`grep "${dir_name}_${subdir_name}_" ${reformat_fn}`
 				if [ ! -z "${this_reformat}" ] && [ -f "${this_reformat}" ] ; then
 					echo "parm frame_$int_f.pdb" > temp_rename.in
 			        	echo "loadcrd frame_$int_f.pdb name edited" >> temp_rename.in
@@ -311,7 +329,7 @@ for sys in ${systms[@]}; do
 					done
 					rm frame_$int_f.pdb.BAK
 
-				        cpptraj -i temp_rename.in > cpptraj.out
+					cpptraj -i temp_rename.in > cpptraj.out
 					rm cpptraj.out
 					rm temp_rename.in
 

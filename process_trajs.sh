@@ -49,6 +49,7 @@ ALIGN="F"
 CENTER="F"
 skip=1
 master_ref=""
+top=""
 align_sel_ref=""
 center_sel=""
 align_sel=""
@@ -60,6 +61,7 @@ while test $# -gt 0; do
       echo "-h, --help        Show brief help"
       echo "-f, --folder      The name of the folder containing the trajectories. Default=cwd"     
       echo "-p, --only_prod   Specify T/F to only include the production trajectories in the reimaged trajectory"  
+      echo "-t, --topology    Specify the full path of the system topology, otherwise one will be located automatically"
       echo "-A, --align       Specify T/F for alignment, default=F"
       echo "-a, --align_sel   Cpptraj formatted selection for centering the system in the simulation box"
       echo "-R, --ref         Full location and name of reference structure for alignment"
@@ -122,6 +124,15 @@ while test $# -gt 0; do
         export master_ref=$1
       else
         master_ref=""
+      fi
+      shift
+      ;;
+    -t|--topology)
+      shift
+      if test $# -gt 0; then
+        export top=$1
+      else
+        top=""
       fi
       shift
       ;;
@@ -191,7 +202,10 @@ for sys in ${systms[@]}; do
    cd ${sim_fldr}
     
    # Grab a topology file
-   top=`ls | grep -E "psf|prmtop" | tail -1`
+   if [ -z "${top}" ] ; then
+  	 top=`ls | grep -E "psf|prmtop" | tail -1`
+	 echo "Found topology file: ${top}"
+   fi
 
    # START OF EDIT A <------------------------------
 
@@ -273,8 +287,8 @@ for sys in ${systms[@]}; do
 
    if [ "${ALIGN}" == "T" ] ; then
      if [ ! -z "${align_sel}" ] || [  ! -z "${align_sel_ref}"  ] ; then
-        echo "parm ${HOME}/${master_ref} [ref_parm]" >> temp.in
-        echo "reference ${HOME}/${master_ref} parm [ref_parm] [my_ref]" >> temp.in
+        echo "parm ${master_ref} [ref_parm]" >> temp.in
+        echo "reference ${master_ref} parm [ref_parm] [my_ref]" >> temp.in
         echo "align ${align_sel} ${align_sel_ref} move @* ref [my_ref]" >> temp.in
      else
         echo "Cannot align system, at least one of the alignment selections not provided --> ${dir_name}/${subdir_name}" >> ${err_log}

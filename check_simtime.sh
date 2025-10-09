@@ -228,7 +228,7 @@ for sys in ${systms[@]}; do
 			status_="running (I)"
 			if [ "$STACK" == "T" ]  ; then
                             echo "Submitting a stacked job now!"
-                            sbatch ${SLURM}
+                            #sbatch ${SLURM}
                         fi
 		fi
        	else
@@ -236,7 +236,7 @@ for sys in ${systms[@]}; do
 			status_="dead (I)"
 	       		if [ "$RESTART" == "T" ]  ; then
 		   	    echo "Relaunching the job now!"
-			    sbatch ${SLURM}
+			    #sbatch ${SLURM}
 		        fi
 		else
 			status_="dead (C)"

@@ -57,7 +57,7 @@ while test $# -gt 0; do
       echo "-h, --help        Show brief help"
       echo "-f, --folder      The name of the folder containing the trajectories. Default=cwd"     
       echo "-t, --time        Specify simulation time for the snapshot (post equilibration). Default=1"
-      echo "-s, --version     Which simulation engine specifications do you want to use. Defaul=Amber24"   
+      echo "-s, --version     Which simulation engine specifications do you want to use. Default=Amber24"   
       exit 0
       ;;
 
