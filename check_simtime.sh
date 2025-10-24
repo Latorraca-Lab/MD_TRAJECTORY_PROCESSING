@@ -153,12 +153,12 @@ for sys in ${systms[@]}; do
    
    # Print the number of completed simulation steps
    if [ ! -z ${last_prod} ] && [ ! -z ${last_eq} ]  ; then
-   	time_ps=`grep "TIME(PS)" ${last_prod} | tail -1 | awk '{print $6}'`
+   	time_ps=`grep "TIME(PS)" ${last_prod} | tail -1 | awk '{for(i=1;i<=NF;i++){if($i~/[0-9]$/){print $i}}}' | sed -n '2p'`
 	if [ ! -z ${time_ps} ] ; then
 		time_total=`awk -v a="$time_ps" 'BEGIN { printf "%f\n", a/1000 }'` # convert ps to ns
 	fi
 
-        time_ps=`grep "TIME(PS)" ${last_eq} | tail -1 | awk '{print $6}'` 
+        time_ps=`grep "TIME(PS)" ${last_eq} | tail -1 | awk '{for(i=1;i<=NF;i++){if($i~/[0-9]$/){print $i}}}' | sed -n '2p'` 
         if [ ! -z ${time_ps} ] ; then
 		time_eq=`awk -v a="$time_ps" 'BEGIN { printf "%f\n", a/1000 }'` # convert ps to ns
 	fi
@@ -228,7 +228,7 @@ for sys in ${systms[@]}; do
 			status_="running (I)"
 			if [ "$STACK" == "T" ]  ; then
                             echo "Submitting a stacked job now!"
-                            #sbatch ${SLURM}
+                            sbatch ${SLURM}
                         fi
 		fi
        	else
@@ -236,7 +236,7 @@ for sys in ${systms[@]}; do
 			status_="dead (I)"
 	       		if [ "$RESTART" == "T" ]  ; then
 		   	    echo "Relaunching the job now!"
-			    #sbatch ${SLURM}
+			    sbatch ${SLURM}
 		        fi
 		else
 			status_="dead (C)"
