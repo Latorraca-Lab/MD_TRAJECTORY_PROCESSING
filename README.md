@@ -9,6 +9,10 @@ Make sure you have access to cpptraj provided by the AmberTools software
 See also cpptraj atom selection formating:
 > https://amberhub.chpc.utah.edu/atom-mask-selection-syntax/ 
 
+* **N.B. To use the original residue numbers when inputing a pdb as a 
+    topology file, use ':;RES#1-RES#2' instead of ':RES#1-RES#2'. The latter
+    will use an internal residue numbering systen starting from 1. 
+
 Recommended folder organization:                                           
 > $CWD/SYSNAME/REPLICA_#                            
 
@@ -22,7 +26,6 @@ And processed output will be places in:
     already present in individual simulation subdirectories.**                 
                                                                              
 * **Also assumes ALL of your simulation output is in one folder**    
-
 
 This repo should contain the following:
 -------------------------------------------------------------------
