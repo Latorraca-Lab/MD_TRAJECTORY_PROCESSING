@@ -49,7 +49,6 @@ ALIGN="F"
 CENTER="F"
 skip=1
 master_ref=""
-top=""
 align_sel_ref=""
 center_sel=""
 align_sel=""
@@ -61,7 +60,6 @@ while test $# -gt 0; do
       echo "-h, --help        Show brief help"
       echo "-f, --folder      The name of the folder containing the trajectories. Default=cwd"     
       echo "-p, --only_prod   Specify T/F to only include the production trajectories in the reimaged trajectory"  
-      echo "-t, --topology    Specify the full path of the system topology, otherwise one will be located automatically"
       echo "-A, --align       Specify T/F for alignment, default=F"
       echo "-a, --align_sel   Cpptraj formatted selection for centering the system in the simulation box"
       echo "-R, --ref         Full location and name of reference structure for alignment"
@@ -124,15 +122,6 @@ while test $# -gt 0; do
         export master_ref=$1
       else
         master_ref=""
-      fi
-      shift
-      ;;
-    -t|--topology)
-      shift
-      if test $# -gt 0; then
-        export top=$1
-      else
-        top=""
       fi
       shift
       ;;
@@ -199,56 +188,10 @@ for sys in ${systms[@]}; do
         mkdir $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}
    fi
 
-   if [ ! -d "$HOME/PROCESSED_TRAJS/${dir_name}/REF_TOPS" ]; then
-        mkdir $HOME/PROCESSED_TRAJS/${dir_name}/REF_TOPS
-   fi
-
    cd ${sim_fldr}
     
    # Grab a topology file
-   if [ -z "${top}" ] ; then
-  	 top=`ls | grep -E "psf|prmtop" | tail -1`
-	 extra_top=`ls | grep -E "psf|prmtop" | tail -1`
-	 if [ -z "${top}" ] ; then
-	 	echo "Using found topology file: ${top}"
-	 else
-	        echo "ERROR! No suitable topology file found, please specify one using the -t option."
-		echo "ERROR! No suitable topology file found, please specify one using the -t option." >> ${err_log}
-		exit 1	
-	 fi
-   else
-	 if [ -f "${top}" ] ; then
-	 	ext="${top##*.}"
-	 	if [ "${ext}" == "pdb" ] ; then
-			echo "[!] You selected a pdb file as a topology for your system [!]"
-			echo "-----------------------------------------------------------"
-			echo "If this file does not contain CONECT lines, using this file"
-			echo "to load your processed trajectory in vmd or PyMOL will cause"
-			echo "visualization defects."
-			
-			extra_top=`ls | grep -E "psf|prmtop" | tail -1`
-			if [ ! -z "${extra_top}" ] ; then
-				echo "Found topology file ${extra_top} in simulation folder"
-				echo "To correct the visualization defects caused by your pdb topology:"
-				echo "(1) Load your pdb topology"
-				echo "(2) Load ${extra_top} into the newly created molecule"
-				echo "(3) Load your processed trajectory in the same molecule"
-			fi
-		 fi
- 	 else
-		echo "ERROR! Cannot locate specified topology file: ${top}"
-		top=`ls | grep -E "psf|prmtop" | tail -1`
-         	extra_top=`ls | grep -E "psf|prmtop" | tail -1`
-         	if [ ! -z "${top}" ] ; then
-                	echo "Using found topology file: ${top}"
-	        else
-        	        echo "ERROR! No suitable topology file found, please specify one using the -t option."
-			echo "ERROR! No suitable topology file found, please specify one using the -t option." >> ${err_log}
-                	exit 1
-	        fi	
-   
-	 fi
-   fi
+   top=`ls | grep -E "psf|prmtop" | tail -1`
 
    # START OF EDIT A <------------------------------
 
@@ -320,27 +263,23 @@ for sys in ${systms[@]}; do
 
    if [ "${CENTER}" == "T" ] ; then
     if [ ! -z "${center_sel}" ] ; then
-        #echo "center origin '${center_sel}'" >> temp.in
-        #echo "image origin center" >> temp.in
-	echo "autoimage '${center_sel}'" >> temp.in
-        echo ""
+    	echo "center origin '${center_sel}'" >> temp.in
+    	echo "image origin center" >> temp.in
+    	echo ""
     else
-        echo "Cannot center system, no centering selection provided --> ${dir_name}/${subdir_name}" >> ${err_log}
+	echo "Cannot center system, no centering selection provided --> ${dir_name}/${subdir_name}" >> ${err_log}
     fi
    fi
-	
 
    if [ "${ALIGN}" == "T" ] ; then
      if [ ! -z "${align_sel}" ] || [  ! -z "${align_sel_ref}"  ] ; then
-        echo "parm ${master_ref} [ref_parm]" >> temp.in
-        echo "reference ${master_ref} parm [ref_parm] [my_ref]" >> temp.in
-        echo "align '${align_sel}' '${align_sel_ref}' move @* ref [my_ref]" >> temp.in
+        echo "parm ${HOME}/${master_ref} [ref_parm]" >> temp.in
+        echo "reference ${HOME}/${master_ref} parm [ref_parm] [my_ref]" >> temp.in
+        echo "align ${align_sel} ${align_sel_ref} move @* ref [my_ref]" >> temp.in
      else
         echo "Cannot align system, at least one of the alignment selections not provided --> ${dir_name}/${subdir_name}" >> ${err_log}
      fi
    fi
-
-   
 
    
    if [ "${only_prod}" == "F" ] ; then
@@ -360,90 +299,26 @@ for sys in ${systms[@]}; do
 	mv reimaged_min_to_prod_skip${skip}.trr $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}
    fi
    
-
-   saved_tops=($(ls ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS))
-   n_tops="${#saved_tops[@]}"
    if [ -f ${top} ] ; then
-	local_top=`echo $(basename $top)`
-	top_ext="${local_top##*.}"
-	match=""
-	if [ "${n_tops}" -gt "0" ] ; then
-		for i in ${saved_tops[@]} ; do
-			diff_wc=`diff -y --suppress-common-lines ${top} ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${i} | wc -l`
-			if [ "${diff_wc}" -eq "0" ] ; then
-				match="$i"
-			fi
-		done	
-	fi
-	if [ -z $match ] ; then
-		if [ -f ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${local_top} ] ; then
-			echo "There is already a topology names ${local_top} in PROCESSED_TRAJS/${dir_name}/REF_TOPS"
-                        diff_wc=`diff -y --suppress-common-lines ${top} ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${local_top} | wc -l`
-                        if [ "${diff_wc}" -eq "0" ] ; then
-                                echo "And it is the same file."
-                                ln -rs ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${local_top} $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}/${subdir_name}.${top_ext}
-                        else
-                                echo "Renaming '${local_top}' to '${subdir_name}.${top_ext}'"
-                                cp ${extra_top} ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${subdir_name}.${top_ext}
-                                ln -rs ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${subdir_name}.${top_ext} $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}/${subdir_name}.${top_ext}
-                        fi	
-		else
-			cp ${top} ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS
-			ln -rs ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${local_top} $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}/${subdir_name}.${top_ext}
-		fi
-	else
-		ln -rs ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${match} $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}/${subdir_name}.${top_ext}
-	fi
-   fi
-
-   saved_tops=($(ls ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS))
-   n_tops="${#saved_tops[@]}"
-   if [ -f ${extra_top} ] && [ "${extra_top}" != "${top}" ] ; then
-   	local_top=`echo $(basename $extra_top)`
-        top_ext="${local_top##*.}"
-        match=""  
-        if [ "${n_tops}" -gt "0" ] ; then
-                for i in ${saved_tops[@]} ; do
-                        diff_wc=`diff -y --suppress-common-lines ${extra_top} ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${i} | wc -l`
-                        if [ "${diff_wc}" -eq "0" ] ; then
-                                match="$i"
-                        fi
-                done
-	fi
-        if [ -z $match ] ; then
-                if [ -f ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${local_top} ] ; then
-                        echo "There is already a topology names ${local_top} in PROCESSED_TRAJS/${dir_name}/REF_TOPS"
-			diff_wc=`diff -y --suppress-common-lines ${extra_top} ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${local_top} | wc -l`
-                        if [ "${diff_wc}" -eq "0" ] ; then
-                                echo "And it is the same file."
-				ln -rs ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${local_top} $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}/${subdir_name}.${top_ext}
-			else
-				echo "Renaming '${local_top}' to '${subdir_name}.${top_ext}'"
-				cp ${extra_top} ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${subdir_name}.${top_ext}
-	                        ln -rs ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${subdir_name}.${top_ext} $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}/${subdir_name}.${top_ext}
-                        fi
-		else
-			cp ${extra_top} ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS
-		        ln -rs ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${extra_top} $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}/${subdir_name}.${top_ext}
-		fi
-        else
-                ln -rs ${HOME}/PROCESSED_TRAJS/${dir_name}/REF_TOPS/${match} $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}/${subdir_name}.${top_ext}
-        fi     
+   	cp ${top} $HOME/PROCESSED_TRAJS/${dir_name}/${subdir_name}
    fi
 
    # clean up
    rm temp.in
 
-
-   if [ ! -f "${HOME}/PROCESSED_TRAJS/${dir_name}/${subdir_name}/reimaged_min_to_prod_skip${skip}.trr" ] ; then
+   if [ ! -f "${HOME}/PROCESSED_TRAJS/${dir_name}/${subdir_name}/reimaged_min_to_prod_skip5.trr" ] ; then
 	echo "Expected final trajectory not generated! --> ${dir_name}/${subdir_name}" >> ${err_log}
    fi
+
+   if [ ! -f "${HOME}/PROCESSED_TRAJS/${dir_name}/${subdir_name}/reimaged_prod_only_skip${skip}.trr" ] && [ "${only_prod}" == "T" ] ; then
+        echo "Expected final trajectory not generated! --> ${dir_name}/${subdir_name}" >> ${err_log}
+   fi
+
 
    cd ${HOME}
 
    echo ""
    cnt=`awk -v a="$cnt" 'BEGIN { printf "%f\n", a+1 }'`
-   
 done
 
 
