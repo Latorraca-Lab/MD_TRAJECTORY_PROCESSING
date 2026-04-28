@@ -223,7 +223,8 @@ for sys in ${systms[@]}; do
 
         if [ ! -z "${running}" ] && [ "${name_}" == "${running}" ] ; then
 		if [ "${MAX}" -le "${time_round}" ]  ; then
-			status_="running (C) -- stop this job? ID: ${running}"
+			jobid=`squeue -o "%.18i %.9P %.30j %.8u %.8T %.10M %.9l %.6D %R" | grep "${user}" | grep "${running}" | awk '{print $1}'`
+                        status_="running (C) -- stop this job? ID: ${jobid}"
 		else
 			status_="running (I)"
 			if [ "$STACK" == "T" ]  ; then
