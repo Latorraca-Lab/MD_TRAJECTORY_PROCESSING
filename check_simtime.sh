@@ -246,11 +246,7 @@ for sys in ${systms[@]}; do
         if [ ! -z "${running}" ] && [ "${name_}" == "${running}" ] ; then
 		if [ "${MAX}" -le "${time_round}" ]  ; then
 			jobid=`squeue -o "%.18i %.9P %.30j %.8u %.8T %.10M %.9l %.6D %R" | grep "${user}" | grep "${running}" | awk '{print $1}'`
-<<<<<<< HEAD
                         status_="running (C) -- stop this job? ID: ${jobid}"
-=======
-			status_="running (C) -- stop this job? ID: ${jobid}"
->>>>>>> b62ecc2 (Updates to check_simtime.sh)
 		else
 			status_="running (I)"
 			if [ "$STACK" == "T" ]  ; then
