@@ -36,6 +36,7 @@ echo ""
 HOME=`pwd`
 date_=`date`
 user=`whoami`
+#user="cas2408"
 
 chars='abcdefghijklmnopqrstuvwxyz0123456789'
 n=5
@@ -50,7 +51,7 @@ summ_log="${HOME}/simtime_summary.${str}.txt"
 FOLDER=`pwd`
 RESTART="F"
 STACK="F"
-MAX=0
+MAX=1000
 MASTER_SLURM=""
 status_="N/A"
 
@@ -100,7 +101,7 @@ while test $# -gt 0; do
       if test $# -gt 0; then
         export MAX=$1
       else
-        export MAX=0
+        export MAX=1000
       fi
       shift
       ;;
@@ -142,36 +143,57 @@ for sys in ${systms[@]}; do
    echo ""
 
    cd ${sim_fldr}
-
+   
    # START OF EDIT A <------------------------------
 
    # Grab the last production and equilibration output
    last_prod=`ls | grep -E "out" | grep "Prod" | sort -V | tail -1`
    last_eq=`ls | grep -E "out" | grep "Eq" | sort -V | tail -1`
-   
+
+   all_eq=($(ls | grep -E "out" | grep "Eq" | sort -V))
+  
    # END OF EDIT A <--------------------------------
    
    # Print the number of completed simulation steps
    if [ ! -z ${last_prod} ] && [ ! -z ${last_eq} ]  ; then
-   	time_ps=`grep "TIME(PS)" ${last_prod} | tail -1 | awk '{for(i=1;i<=NF;i++){if($i~/[0-9]$/){print $i}}}' | sed -n '2p'`
+
+	time_ps=`grep "TIME(PS)" ${last_prod} | tail -1 | awk '{for(i=1;i<=NF;i++){if($i~/[0-9]$/){print $i}}}' | sed -n '2p' | sed 's/=//g'`
+
 	if [ ! -z ${time_ps} ] ; then
 		time_total=`awk -v a="$time_ps" 'BEGIN { printf "%f\n", a/1000 }'` # convert ps to ns
+	else
+		if [ "${last_prod}" == "Prod_1.out" ] ; then 
+		       echo "No production simulation completed."
+	        else 
+		       last_prod=`ls | grep -E "out" | grep "Prod" | sort -V | tail -2 | head -1`
+		       time_ps=`grep "TIME(PS)" ${last_prod} | tail -1 | awk '{for(i=1;i<=NF;i++){if($i~/[0-9]$/){print $i}}}' | sed -n '2p' | sed 's/=//g'`
+		       if [ ! -z ${time_ps} ] ; then
+				time_total=`awk -v a="$time_ps" 'BEGIN { printf "%f\n", a/1000 }'` # convert ps to ns
+	 	       fi		
+		fi
 	fi
 
-        time_ps=`grep "TIME(PS)" ${last_eq} | tail -1 | awk '{for(i=1;i<=NF;i++){if($i~/[0-9]$/){print $i}}}' | sed -n '2p'` 
+	time_ps=`grep "TIME(PS)" ${last_eq} | tail -1 | awk '{for(i=1;i<=NF;i++){if($i~/[0-9]$/){print $i}}}' | sed -n '2p' | sed 's/=//g'` 
         if [ ! -z ${time_ps} ] ; then
 		time_eq=`awk -v a="$time_ps" 'BEGIN { printf "%f\n", a/1000 }'` # convert ps to ns
 	fi
 
+	#for i in ${all_eq[@]} ; do 
+	#	time_ps=`grep "TIME(PS)" ${i} | tail -1 | awk '{for(i=1;i<=NF;i++){if($i~/[0-9]$/){print $i}}}' | sed -n '2p' | sed 's/=//g'`
+	#	awk -v a="$time_ps" 'BEGIN { printf "%f\n", a/1000 }'
+	#done
+
 	#subtract off the time up to the start of production
-	if [ ! -z ${time_eq} ] && [ ! -z ${time_ps} ] ; then 
+	if [ ! -z ${time_eq} ] && [ ! -z ${time_total} ] ; then
+
+		echo "$time_total | $time_eq"	
         	prod_time=`awk -v a="$time_total" -v b="$time_eq" 'BEGIN { printf "%f\n", a-b }'`
         	time_round=`echo "$prod_time" | xargs printf "%.*f\n" "0"`
 		echo "Total production simulation time: ${time_round} ns"
 	else
 		echo "Simulation time for production and or equilibration not found --> ${dir_name}/${subdir_name}" >> ${err_log}
 		echo "	Check individual output files"
-		time_round="N/A"
+		time_round=0
 	fi
    else
 	echo "Cannot locate production and/or equilibration summary output files --> ${dir_name}/${subdir_name}" >> ${err_log}
@@ -224,12 +246,16 @@ for sys in ${systms[@]}; do
         if [ ! -z "${running}" ] && [ "${name_}" == "${running}" ] ; then
 		if [ "${MAX}" -le "${time_round}" ]  ; then
 			jobid=`squeue -o "%.18i %.9P %.30j %.8u %.8T %.10M %.9l %.6D %R" | grep "${user}" | grep "${running}" | awk '{print $1}'`
+<<<<<<< HEAD
                         status_="running (C) -- stop this job? ID: ${jobid}"
+=======
+			status_="running (C) -- stop this job? ID: ${jobid}"
+>>>>>>> b62ecc2 (Updates to check_simtime.sh)
 		else
 			status_="running (I)"
 			if [ "$STACK" == "T" ]  ; then
                             echo "Submitting a stacked job now!"
-                            sbatch ${SLURM}
+                            #sbatch ${SLURM}
                         fi
 		fi
        	else
@@ -237,7 +263,7 @@ for sys in ${systms[@]}; do
 			status_="dead (I)"
 	       		if [ "$RESTART" == "T" ]  ; then
 		   	    echo "Relaunching the job now!"
-			    sbatch ${SLURM}
+			    #sbatch ${SLURM}
 		        fi
 		else
 			status_="dead (C)"
